@@ -9,9 +9,9 @@ use alloy_sol_types::{sol, SolType};
 use tracing::{info, warn, error};
 use tracing_subscriber::{fmt, layer::SubscriberExt, util::SubscriberInitExt};
 
-// The batch wire format lives in `pins-core` so the host and the guest cannot drift
+// The batch wire format lives in `kns-core` so the host and the guest cannot drift
 // apart. It used to be duplicated here under a "MUST MATCH GUEST EXACTLY" comment.
-use pins_core::BatchPayload;
+use kns_core::BatchPayload;
 
 // ABI structure for decoding SP1 outputs
 sol! {
@@ -36,7 +36,7 @@ pub struct FinalResultJson {
 
 // 1. Define the CLI Arguments
 #[derive(Parser, Debug)]
-#[command(author, version, about = "SP1 Prover Script for PiNS")]
+#[command(author, version, about = "SP1 Prover Script for KNS")]
 struct Args {
     #[arg(long)]
     batch_dir: String,
@@ -212,7 +212,7 @@ async fn run_prover(args: &Args, batch_dir: &Path) -> Result<()> {
     // Initialize SP1
     info!("Initializing SP1 Prover Client");
     let client = ProverClient::from_env().await;
-    let elf: Elf = include_elf!("pins-program");
+    let elf: Elf = include_elf!("kns-program");
 
     // Mirrors sp1-sdk's own default when SP1_PROVER is unset.
     let prover_mode = std::env::var("SP1_PROVER").unwrap_or_else(|_| "cpu".to_string());

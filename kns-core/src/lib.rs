@@ -1,4 +1,4 @@
-//! Protocol logic shared by the PiNS zkVM guest, the host prover runner and the
+//! Protocol logic shared by the KNS zkVM guest, the host prover runner and the
 //! fixture generator.
 //!
 //! Everything in here defines the wire protocol: the batch structures, the exact
@@ -34,29 +34,29 @@ use ed25519_dalek::{Signature, VerifyingKey};
 /// without the prefix split a staging ownership transfer would be a valid mainnet
 /// ownership transfer whenever the nonce ordering happened to allow it.
 #[cfg(not(feature = "testnet"))]
-pub const MESSAGE_PREFIX: &[u8] = b"PiNS:1:";
+pub const MESSAGE_PREFIX: &[u8] = b"KNS:1:";
 /// See the mainnet variant for the rationale.
 #[cfg(feature = "testnet")]
-pub const MESSAGE_PREFIX: &[u8] = b"tPiNS:1:";
+pub const MESSAGE_PREFIX: &[u8] = b"tKNS:1:";
 
-/// Bech32 human-readable prefix of the PIVX Sapling addresses this build accepts.
+/// Bech32m human-readable prefix of the Kerrigan Sapling addresses this build accepts.
 ///
-/// Mainnet shielded addresses are `ps1…`; the current testnet uses `pts1…`. The legacy
-/// `ptestsapling1…` testnet form is deliberately **not** accepted on either network.
+/// Mainnet shielded addresses are `ks1…`; testnet ones are `ktestsapling1…`. The regtest
+/// (`kregsapling1…`) and devnet (`kdevsapling1…`) forms are not accepted on either network.
 #[cfg(not(feature = "testnet"))]
-pub const EXPECTED_HRP: &str = "ps";
+pub const EXPECTED_HRP: &str = "ks";
 /// See the mainnet variant.
 #[cfg(feature = "testnet")]
-pub const EXPECTED_HRP: &str = "pts";
+pub const EXPECTED_HRP: &str = "ktestsapling";
 
 /// Decoded payload length of a Sapling payment address: 11-byte diversifier + 32-byte `pk_d`.
 pub const SAPLING_PAYLOAD_LEN: usize = 43;
 
 /// Exact character length of an acceptable address, derived rather than hardcoded.
 ///
-/// Bech32 encodes the 43-byte payload as `ceil(43 * 8 / 5) = 69` data characters plus a
+/// Bech32m encodes the 43-byte payload as `ceil(43 * 8 / 5) = 69` data characters plus a
 /// 6-character checksum, and adds the `1` separator, so the total is
-/// `hrp.len() + 1 + 69 + 6`: 78 for `ps`, 79 for `pts`.
+/// `hrp.len() + 1 + 69 + 6`: 78 for `ks`, 88 for `ktestsapling`.
 ///
 /// The length is pinned as well as the prefix and the decoded payload size because a
 /// bech32 decoder will happily accept other payload lengths under the same prefix, and
@@ -65,7 +65,7 @@ pub const SAPLING_PAYLOAD_LEN: usize = 43;
 pub const EXPECTED_ADDRESS_LEN: usize = EXPECTED_HRP.len() + 1 + 69 + 6;
 
 /// Domain suffixes the protocol will register.
-pub const ALLOWED_ZONES: [&str; 4] = ["pivx", "private", "secure", "safe"];
+pub const ALLOWED_ZONES: [&str; 5] = ["kerrigan", "krgn", "private", "secure", "safe"];
 
 // ---------------------------------------------------------------------------
 // Hash domain separation
@@ -165,7 +165,7 @@ impl Op {
     /// * Only these operations need to *validate* the address. For CHG/LST/ULT the
     ///   leaf's address is pinned by the expected old leaf, so the only value that
     ///   can satisfy the Merkle proof is one that REG/UPD/BUY already validated on
-    ///   the way in. Re-validating would repeat a bech32 decode and base-32 expansion
+    ///   the way in. Re-validating would repeat a bech32m decode and base-32 expansion
     ///   for a value the proof has already pinned.
     ///
     /// The validation induction holds as long as the genesis root is the empty tree
@@ -295,7 +295,7 @@ pub fn domain_path(domain: &str) -> [u8; 32] {
 // Input validation
 // ---------------------------------------------------------------------------
 
-// (PIVX target addresses are plain Sapling bech32 strings, so there is no multi-receiver
+// (Kerrigan target addresses are plain Sapling bech32m strings, so there is no multi-receiver
 // container to unpack here — see `is_address_valid` below.)
 
 #[cfg(feature = "validation")]
@@ -340,19 +340,19 @@ pub fn is_domain_valid(domain: &str) -> bool {
     ALLOWED_ZONES.contains(&zone)
 }
 
-/// Validates a PIVX Sapling shielded payment address for the network this build targets.
+/// Validates a Kerrigan Sapling shielded payment address for the network this build targets.
 ///
 /// Four independent things are checked, and all four matter:
 ///
-/// 1. **Canonical lowercase.** Bech32 permits an all-uppercase encoding of the same
+/// 1. **Canonical lowercase.** Bech32m permits an all-uppercase encoding of the same
 ///    address. Two spellings of one address would hash to two different leaves, so the
 ///    tree would disagree with itself; the host enforces lowercase too.
-/// 2. **The exact prefix for this build** — `ps` on mainnet, `pts` on testnet. A testnet
-///    address can therefore never be registered against mainnet state, and vice versa.
-///    The legacy `ptestsapling` form is rejected on both.
+/// 2. **The exact prefix for this build** — `ks` on mainnet, `ktestsapling` on testnet. A
+///    testnet address can therefore never be registered against mainnet state, and vice
+///    versa. The regtest and devnet forms are rejected on both.
 /// 3. **The exact character length** (`EXPECTED_ADDRESS_LEN`), matching the host.
 /// 4. **The decoded payload length** — 43 bytes. Length in characters and length in
-///    bytes are not equivalent conditions: bech32 pads to 5-bit groups, so a payload of
+///    bytes are not equivalent conditions: bech32m pads to 5-bit groups, so a payload of
 ///    43 bytes and one of 43 bytes plus a few stray bits can encode to the same number
 ///    of characters. Checking the decoded size closes that.
 ///
@@ -369,7 +369,7 @@ pub fn is_address_valid(address: &str) -> bool {
         return false;
     }
 
-    // Reject before decoding: bech32's checksum accepts either case, so an uppercase
+    // Reject before decoding: bech32m's checksum accepts either case, so an uppercase
     // variant would otherwise decode successfully into the same payload.
     if address.bytes().any(|b| b.is_ascii_uppercase()) {
         return false;
@@ -377,9 +377,10 @@ pub fn is_address_valid(address: &str) -> bool {
 
     match bech32::decode(address) {
         Ok((hrp, data, variant)) => {
-            // Sapling addresses are bech32, not bech32m; accepting both would let one
-            // address have two valid checksums.
-            if variant != bech32::Variant::Bech32 || hrp != EXPECTED_HRP {
+            // Kerrigan Sapling addresses are bech32m, not bech32 (unlike Zcash's and PIVX's):
+            // Kerrigan Core's DecodeSaplingAddress refuses the bech32 checksum. Accepting
+            // both would let one address have two valid checksums.
+            if variant != bech32::Variant::Bech32m || hrp != EXPECTED_HRP {
                 return false;
             }
             match bech32::convert_bits(&data, 5, 8, false) {
@@ -406,7 +407,7 @@ pub fn is_address_valid(address: &str) -> bool {
 /// of exactly [`EXPECTED_ADDRESS_LEN`] characters (REG, UPD and BUY validate it; CHG, LST
 /// and ULT carry it over). Requiring the same of the record fixes the address length,
 /// hence the domain length, hence the one way to cut the preimage. Both checks are cheap;
-/// the full bech32 decode is not needed for this.
+/// the full bech32m decode is not needed for this.
 #[cfg(feature = "validation")]
 pub fn is_blocking_record_valid(record: &LeafRecord) -> bool {
     record.target_address.len() == EXPECTED_ADDRESS_LEN && is_domain_valid(&record.domain)
@@ -460,8 +461,8 @@ mod tests {
     /// Lowercase hex of [`PK`].
     const PK_HEX: &str =
         "0101010101010101010101010101010101010101010101010101010101010101";
-    const DOMAIN: &str = "alice.pivx";
-    const ADDR: &str = "ps1abcdef";
+    const DOMAIN: &str = "alice.krgn";
+    const ADDR: &str = "ks1abcdef";
 
     fn hex(bytes: &[u8]) -> String {
         let mut buf = vec![0u8; bytes.len() * 2];
@@ -475,7 +476,7 @@ mod tests {
     fn domain_path_matches_reference() {
         assert_eq!(
             hex(&domain_path(DOMAIN)),
-            "485017efa5d28fa0bcd37ac0570fc45dd963f31f1c78c74bf6b36fbe1fe12d84"
+            "fbf0a43deee9bf66e4bf5415259f5cf438fcbec39b7372b720aa82eb09572038"
         );
     }
 
@@ -483,7 +484,7 @@ mod tests {
     fn hash_leaf_matches_reference() {
         assert_eq!(
             hex(&hash_leaf(DOMAIN, &PK, ADDR, 0, 1)),
-            "e5387e54f6ef187ed10f699585e289907520924814d9973936a1749f12438740"
+            "a953f6e55dd1d86b4fbf809815030103d912dc03d576b161dffdba8ca1b7381e"
         );
     }
 
@@ -501,7 +502,7 @@ mod tests {
 
     #[test]
     fn distinct_domains_take_distinct_paths() {
-        assert_ne!(domain_path("alice.pivx"), domain_path("bob.pivx"));
+        assert_ne!(domain_path("alice.krgn"), domain_path("bob.krgn"));
     }
 
     // -- Signed messages ----------------------------------------------------
@@ -513,23 +514,23 @@ mod tests {
     #[cfg(not(feature = "testnet"))]
     #[test]
     fn signed_messages_match_reference() {
-        assert_eq!(msg(Op::Reg, 0), format!("PiNS:1:REG:{DOMAIN}:{ADDR}:{PK_HEX}:42"));
-        assert_eq!(msg(Op::Upd, 0), format!("PiNS:1:UPD:{DOMAIN}:{ADDR}:{PK_HEX}:42"));
-        assert_eq!(msg(Op::Chg, 0), format!("PiNS:1:CHG:{DOMAIN}:{PK_HEX}:42"));
+        assert_eq!(msg(Op::Reg, 0), format!("KNS:1:REG:{DOMAIN}:{ADDR}:{PK_HEX}:42"));
+        assert_eq!(msg(Op::Upd, 0), format!("KNS:1:UPD:{DOMAIN}:{ADDR}:{PK_HEX}:42"));
+        assert_eq!(msg(Op::Chg, 0), format!("KNS:1:CHG:{DOMAIN}:{PK_HEX}:42"));
         assert_eq!(
             msg(Op::Lst, 100_000_000),
-            format!("PiNS:1:LST:{DOMAIN}:{PK_HEX}:100000000:42")
+            format!("KNS:1:LST:{DOMAIN}:{PK_HEX}:100000000:42")
         );
-        assert_eq!(msg(Op::Ult, 0), format!("PiNS:1:ULT:{DOMAIN}:{PK_HEX}:42"));
-        assert_eq!(msg(Op::Buy, 0), format!("PiNS:1:BUY:{DOMAIN}:{ADDR}:{PK_HEX}:42"));
+        assert_eq!(msg(Op::Ult, 0), format!("KNS:1:ULT:{DOMAIN}:{PK_HEX}:42"));
+        assert_eq!(msg(Op::Buy, 0), format!("KNS:1:BUY:{DOMAIN}:{ADDR}:{PK_HEX}:42"));
     }
 
     /// A testnet build must not produce a message a mainnet verifier would accept.
     #[cfg(feature = "testnet")]
     #[test]
     fn testnet_messages_use_a_distinct_prefix() {
-        assert_eq!(msg(Op::Chg, 0), format!("tPiNS:1:CHG:{DOMAIN}:{PK_HEX}:42"));
-        assert!(msg(Op::Reg, 0).starts_with("tPiNS:1:"));
+        assert_eq!(msg(Op::Chg, 0), format!("tKNS:1:CHG:{DOMAIN}:{PK_HEX}:42"));
+        assert!(msg(Op::Reg, 0).starts_with("tKNS:1:"));
     }
 
     /// Only LST binds a price, so changing the price must not disturb any other
@@ -582,8 +583,8 @@ mod tests {
     #[test]
     fn accepts_valid_domains() {
         for d in [
-            "a.pivx", "alice.pivx", "my-domain.private", "x1.secure", "0.safe",
-            "a-b-c.pivx",
+            "a.krgn", "alice.kerrigan", "my-domain.private", "x1.secure", "0.safe",
+            "a-b-c.krgn",
         ] {
             assert!(is_domain_valid(d), "{d} should be valid");
         }
@@ -596,16 +597,17 @@ mod tests {
             "",                    // empty
             "alice",               // no zone
             "alice.com",           // unknown zone
-            "alice.pivx.pivx",     // two dots
-            "-alice.pivx",        // leading hyphen
-            "alice-.pivx",        // trailing hyphen
-            "al--ice.pivx",       // double hyphen (also blocks punycode)
-            ".pivx",              // empty prefix
-            "Alice.pivx",         // uppercase
-            "ali ce.pivx",        // space
-            "ali_ce.pivx",        // underscore
-            "alicé.pivx",         // non-ascii
-            "alice.PIVX",          // uppercase zone
+            "alice.krgn.krgn",     // two dots
+            "-alice.krgn",        // leading hyphen
+            "alice-.krgn",        // trailing hyphen
+            "al--ice.krgn",       // double hyphen (also blocks punycode)
+            ".krgn",              // empty prefix
+            "Alice.krgn",         // uppercase
+            "ali ce.krgn",        // space
+            "ali_ce.krgn",        // underscore
+            "alicé.krgn",         // non-ascii
+            "alice.KRGN",          // uppercase zone
+            "alice.pivx",          // another coin's zone
         ] {
             assert!(!is_domain_valid(d), "{d} should be rejected");
         }
@@ -614,11 +616,11 @@ mod tests {
     #[cfg(feature = "validation")]
     #[test]
     fn rejects_overlong_domains() {
-        let long = format!("{}.pivx", "a".repeat(60)); // 60 + 5 = 65 bytes
+        let long = format!("{}.krgn", "a".repeat(60)); // 60 + 5 = 65 bytes
         assert_eq!(long.len(), 65);
         assert!(!is_domain_valid(&long));
 
-        let max = format!("{}.pivx", "a".repeat(59)); // exactly 64
+        let max = format!("{}.krgn", "a".repeat(59)); // exactly 64
         assert_eq!(max.len(), 64);
         assert!(is_domain_valid(&max));
     }
@@ -632,26 +634,29 @@ mod tests {
     }
 
     // -- Address validation -------------------------------------------------
-
-    // -- Address validation -------------------------------------------------
     //
-    // Every address below is a real, checksum-valid PIVX Sapling address with a 43-byte
-    // payload, so a rejection can only come from the policy under test and never from a
-    // malformed vector.
+    // Every address below is a real, checksum-valid Kerrigan Sapling address with a 43-byte
+    // payload, made by Kerrigan Core v1.4.0 (`z_getnewaddress`), so a rejection can only come
+    // from the policy under test and never from a malformed vector.
 
-    /// Valid mainnet shielded address (`ps`, 78 chars).
+    /// Valid mainnet shielded address (`ks`, 78 chars).
     #[cfg(feature = "validation")]
     const MAINNET_ADDR: &str =
-        "ps10ayxgy96kzhzwe0mtd53lraj4hxsu9scyh730vwxna0ul2yxw2pwxvdceu8tajd40fhvkmx3dyz";
-    /// Valid current-testnet shielded address (`pts`, 79 chars).
+        "ks1npkydsxtk0gzhahlph73ryx7hxk7ee2wgsvvur4y8jrxrr7h5w95gjjzdk98ruxlnrajzyrkjgf";
+    /// Valid testnet shielded address (`ktestsapling`, 88 chars).
     #[cfg(feature = "validation")]
     const TESTNET_ADDR: &str =
-        "pts10nwz757gl22x80lupd3vfa3t5s4jhqfq0krgtv0m7gcr5t42eq8ugdww3tpluqjyqlp55z6x39r";
-    /// Valid *legacy* testnet address (`ptestsapling`, 88 chars). Checksum is fine; the
-    /// protocol rejects the form itself, on both networks.
+        "ktestsapling1y5p5wupyfwr5679l9u8m9w3lvgs3qdnn7yal5q8hd7fmekr6wsdcxelv4ddufdjygrq92rr29lx";
+    /// Valid *regtest* address (`kregsapling`, 87 chars). Checksum is fine; the protocol
+    /// rejects the form itself, on both networks.
     #[cfg(feature = "validation")]
-    const LEGACY_TESTNET_ADDR: &str =
-        "ptestsapling1xnwg2pdn7q82e9uqchyzazut5j7mcef20mg7jkpyk00zry9ep470d3qre69rvwwgcxljydu75dn";
+    const REGTEST_ADDR: &str =
+        "kregsapling1frurahjy20rh4j3mxwvj66623xx9l5wwx6ukcmjyx8ny05hy9lun5jx934na7nruv64puptalrm";
+    /// [`MAINNET_ADDR`]'s payload under a bech32 checksum instead of bech32m. The checksum
+    /// itself is valid, which is exactly why the variant has to be checked.
+    #[cfg(all(feature = "validation", not(feature = "testnet")))]
+    const MAINNET_ADDR_BECH32: &str =
+        "ks1npkydsxtk0gzhahlph73ryx7hxk7ee2wgsvvur4y8jrxrr7h5w95gjjzdk98ruxlnrajz3lx7dt";
 
     /// The address this build is supposed to accept, and the one it must not.
     #[cfg(feature = "validation")]
@@ -681,14 +686,25 @@ mod tests {
         assert!(!is_address_valid(theirs), "{theirs} is the wrong network");
     }
 
-    /// Deliberate policy: the legacy 88-character testnet form is not accepted anywhere.
+    /// Deliberate policy: the regtest form is not accepted on either network.
     #[cfg(feature = "validation")]
     #[test]
-    fn rejects_the_legacy_testnet_address_form() {
-        assert!(!is_address_valid(LEGACY_TESTNET_ADDR));
+    fn rejects_the_regtest_address_form() {
+        assert!(!is_address_valid(REGTEST_ADDR));
     }
 
-    /// Bech32 checksums are case-insensitive, so the uppercase spelling of an accepted
+    /// Kerrigan Core accepts only the bech32m checksum for a Sapling address. The bech32
+    /// spelling of the same payload must be refused too, or one address would have two
+    /// spellings, hashing to two different leaves.
+    #[cfg(all(feature = "validation", not(feature = "testnet")))]
+    #[test]
+    fn rejects_the_bech32_checksum_of_a_valid_payload() {
+        assert!(is_address_valid(MAINNET_ADDR));
+        assert_eq!(MAINNET_ADDR_BECH32.len(), MAINNET_ADDR.len());
+        assert!(!is_address_valid(MAINNET_ADDR_BECH32));
+    }
+
+    /// Bech32m checksums are case-insensitive, so the uppercase spelling of an accepted
     /// address decodes to the same payload. It must still be refused: two spellings of
     /// one address would hash to two different leaves.
     #[cfg(feature = "validation")]
@@ -704,7 +720,7 @@ mod tests {
     fn rejects_a_corrupted_checksum() {
         let (ours, _) = network_vectors();
         let mut bad = ours.to_string();
-        // Flip the final character to a different bech32 charset member.
+        // Flip the final character to a different bech32m charset member.
         let last = bad.pop().unwrap();
         bad.push(if last == 'q' { 'p' } else { 'q' });
         assert_eq!(bad.len(), ours.len(), "length must be unchanged");
@@ -721,9 +737,10 @@ mod tests {
             "not-an-address",
             "1",
             truncated,
-            // PIVX transparent address: not shielded, and not bech32 at all.
-            "DAbxRxCXA6vghAMFHmXfmvsLNqCvGjqTvA",
-            // Correct shape, wrong coin: a Zcash Sapling address.
+            // Kerrigan transparent address: not shielded, and not bech32m at all.
+            "KSvgmrG5YH1yXqRx99XzXphsvkQXpjdFxK",
+            // Correct shape, wrong coin: a PIVX and a Zcash Sapling address (bech32).
+            "ps10ayxgy96kzhzwe0mtd53lraj4hxsu9scyh730vwxna0ul2yxw2pwxvdceu8tajd40fhvkmx3dyz",
             "zs1z7rejlpsa98s2rrrfkwmaxu53e4ue0ulcrw0h4x5g8jl04tak0d3mm47vdtahatqrlkngh9sly",
             // Right prefix, no separator or data.
             EXPECTED_HRP,
@@ -738,10 +755,10 @@ mod tests {
     #[test]
     fn expected_address_length_matches_the_network() {
         if cfg!(feature = "testnet") {
-            assert_eq!(EXPECTED_HRP, "pts");
-            assert_eq!(EXPECTED_ADDRESS_LEN, 79);
+            assert_eq!(EXPECTED_HRP, "ktestsapling");
+            assert_eq!(EXPECTED_ADDRESS_LEN, 88);
         } else {
-            assert_eq!(EXPECTED_HRP, "ps");
+            assert_eq!(EXPECTED_HRP, "ks");
             assert_eq!(EXPECTED_ADDRESS_LEN, 78);
         }
     }

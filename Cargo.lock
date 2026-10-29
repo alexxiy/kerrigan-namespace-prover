@@ -4526,7 +4526,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a89322df9ebe1c1578d689c92318e070967d1042b512afbe49518723f4e6d5cd"
 
 [[package]]
-name = "pins-core"
+name = "kns-core"
 version = "0.1.0"
 dependencies = [
  "bech32",
@@ -4536,18 +4536,18 @@ dependencies = [
 ]
 
 [[package]]
-name = "pins-program"
+name = "kns-program"
 version = "0.1.0"
 dependencies = [
  "alloy-sol-types",
  "ed25519-dalek",
- "pins-core",
+ "kns-core",
  "serde",
  "sp1-zkvm",
 ]
 
 [[package]]
-name = "pins-script"
+name = "kns-script"
 version = "0.1.0"
 dependencies = [
  "alloy-sol-types",
@@ -4556,7 +4556,7 @@ dependencies = [
  "clap",
  "ed25519-dalek",
  "hex",
- "pins-core",
+ "kns-core",
  "serde",
  "serde_json",
  "sp1-build",

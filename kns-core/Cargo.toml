@@ -1,6 +1,6 @@
 [package]
 version = "0.1.0"
-name = "pins-core"
+name = "kns-core"
 edition = "2021"
 
 # Protocol logic shared by the zkVM guest (`program`), the host runner (`script`),
@@ -20,7 +20,7 @@ sha2 = { version = "0.10.9", default-features = false }
 # --- Optional: signature verification (guest only) ---
 ed25519-dalek = { version = "2", default-features = false, optional = true }
 
-# --- Optional: PIVX Sapling address validation (guest only, no_std compatible) ---
+# --- Optional: Kerrigan Sapling address validation (bech32m; guest only, no_std compatible) ---
 bech32 = { version = "0.9", default-features = false, optional = true }
 
 [features]
@@ -29,7 +29,7 @@ bech32 = { version = "0.9", default-features = false, optional = true }
 # address and signature stacks they never call.
 default = ["validation", "signatures"]
 
-# Domain and PIVX Sapling address validation.
+# Domain and Kerrigan Sapling address validation.
 validation = ["dep:bech32"]
 
 # Ed25519 signature verification.
@@ -39,8 +39,8 @@ signatures = ["dep:ed25519-dalek"]
 # the incremental verifier and to build fixtures; never compiled into the guest.
 reference-tree = []
 
-# Builds the protocol for a testnet deployment: signed messages carry the `tPiNS:`
-# prefix instead of `PiNS:`, and target addresses must be testnet Sapling addresses.
+# Builds the protocol for a testnet deployment: signed messages carry the `tKNS:`
+# prefix instead of `KNS:`, and target addresses must be testnet Sapling addresses.
 # Because the prefix is compiled into the guest ELF, a testnet build also gets a
 # distinct vKey, so mainnet and testnet proofs are not interchangeable either.
 testnet = []

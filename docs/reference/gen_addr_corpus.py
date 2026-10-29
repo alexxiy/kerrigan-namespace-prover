@@ -2,7 +2,7 @@
 """Generates an address-validation corpus with verdicts derived from first principles.
 
 This is the independent third implementation, in the same role the compact-SMT reference
-plays: Rust (pins-core, which the circuit uses) and PHP (the indexer) are both checked
+plays: Rust (kns-core, which the circuit uses) and PHP (the indexer) are both checked
 against it, so a divergence between host and guest shows up as a test failure instead of a
 batch that the indexer queues and the prover cannot prove.
 """
@@ -13,6 +13,10 @@ import sys
 CHARSET = "qpzry9x8gf2tvdw0s3jn54khce6mua7l"
 GEN = [0x3b6a57b2, 0x26508e6d, 0x1ea119fa, 0x3d4233dd, 0x2a1462b3]
 PAYLOAD_LEN = 43  # 11-byte diversifier + 32-byte pk_d
+# BIP 350 checksum constants. Kerrigan Sapling addresses are bech32m; the bech32 form of
+# the same payload must be refused, or one address would have two valid spellings.
+BECH32_CONST = 1
+BECH32M_CONST = 0x2bc830a3
 
 
 def polymod(values):
@@ -49,16 +53,16 @@ def convertbits(data, frm, to, pad=True):
     return ret
 
 
-def encode(hrp, payload):
+def encode(hrp, payload, const=BECH32M_CONST):
     data = convertbits(payload, 8, 5, True)
-    chk = polymod(hrp_expand(hrp) + data + [0] * 6) ^ 1
+    chk = polymod(hrp_expand(hrp) + data + [0] * 6) ^ const
     checksum = [(chk >> 5 * (5 - i)) & 31 for i in range(6)]
     return hrp + "1" + "".join(CHARSET[d] for d in data + checksum)
 
 
 def verdict(addr, net):
-    """The policy, stated once: lowercase, exact hrp, exact length, 43-byte payload."""
-    hrp, length = ("ps", 78) if net == "mainnet" else ("pts", 79)
+    """The policy, stated once: lowercase, exact hrp, exact length, bech32m, 43-byte payload."""
+    hrp, length = ("ks", 78) if net == "mainnet" else ("ktestsapling", 88)
     if addr == "" or addr.lower() != addr:
         return False
     if len(addr) != length:
@@ -74,14 +78,14 @@ def verdict(addr, net):
         return False
     if len(data) < 6:
         return False
-    if polymod(hrp_expand(hrp) + data) != 1:
+    if polymod(hrp_expand(hrp) + data) != BECH32M_CONST:
         return False
     payload = convertbits(data[:-6], 5, 8, pad=False)
     return payload is not None and len(payload) == PAYLOAD_LEN
 
 
 def main():
-    rng = random.Random(20260730)
+    rng = random.Random(20261028)
     cases = []
 
     def add(addr, why):
@@ -90,24 +94,30 @@ def main():
                       "testnet": verdict(addr, "testnet")})
 
     # Valid addresses on each network.
-    for hrp in ("ps", "pts"):
+    for hrp in ("ks", "ktestsapling"):
         for i in range(12):
             payload = bytes(rng.randrange(256) for _ in range(PAYLOAD_LEN))
             add(encode(hrp, payload), f"valid {hrp}")
 
+    # The same well-formed payloads with a bech32 (not bech32m) checksum.
+    for hrp in ("ks", "ktestsapling"):
+        for i in range(3):
+            payload = bytes(rng.randrange(256) for _ in range(PAYLOAD_LEN))
+            add(encode(hrp, payload, BECH32_CONST), f"{hrp} bech32 checksum")
+
     # Wrong payload sizes under a correct prefix: the case a length-only check misses.
-    for hrp in ("ps", "pts"):
+    for hrp in ("ks", "ktestsapling"):
         for n in (32, 42, 44, 64):
             payload = bytes(rng.randrange(256) for _ in range(n))
             add(encode(hrp, payload), f"{hrp} payload {n}B")
 
-    # Legacy testnet form, and other PIVX-ish prefixes.
-    for hrp in ("ptestsapling", "p", "pss", "pt", "ptest"):
+    # Kerrigan's regtest and devnet forms, other Kerrigan-ish prefixes, and PIVX's.
+    for hrp in ("kregsapling", "kdevsapling", "k", "kss", "kt", "ktest", "ps", "pts"):
         add(encode(hrp, bytes(rng.randrange(256) for _ in range(PAYLOAD_LEN))), f"hrp {hrp}")
 
     # Mutations of a valid address: checksum breakage, case, truncation, padding.
     base = {h: encode(h, bytes(rng.randrange(256) for _ in range(PAYLOAD_LEN)))
-            for h in ("ps", "pts")}
+            for h in ("ks", "ktestsapling")}
     for hrp, addr in base.items():
         add(addr.upper(), f"{hrp} uppercase")
         add(addr.capitalize(), f"{hrp} mixed case")
@@ -120,8 +130,9 @@ def main():
         add(addr.replace("1", "", 1), f"{hrp} no separator")
 
     # Non-bech32 and foreign-coin inputs.
-    for a in ("", "not-an-address", "1", "ps", "pts", "ps1",
-              "DAbxRxCXA6vghAMFHmXfmvsLNqCvGjqTvA",
+    for a in ("", "not-an-address", "1", "ks", "ktestsapling", "ks1",
+              "KSvgmrG5YH1yXqRx99XzXphsvkQXpjdFxK",
+              "ps10ayxgy96kzhzwe0mtd53lraj4hxsu9scyh730vwxna0ul2yxw2pwxvdceu8tajd40fhvkmx3dyz",
               "zs1z7rejlpsa98s2rrrfkwmaxu53e4ue0ulcrw0h4x5g8jl04tak0d3mm47vdtahatqrlkngh9sly",
               "bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4"):
         add(a, "foreign/malformed")

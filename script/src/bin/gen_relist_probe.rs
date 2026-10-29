@@ -9,7 +9,7 @@
 //!
 //! ```bash
 //! cargo run --release --bin gen_relist_probe -- --batch-dir /tmp/probe --batch-id 9
-//! cargo run --release --bin pins-script -- --batch-dir /tmp/probe --batch-id 9 --execute
+//! cargo run --release --bin kns-script -- --batch-dir /tmp/probe --batch-id 9 --execute
 //! ```
 
 use std::fs;
@@ -18,8 +18,8 @@ use anyhow::{Context, Result};
 use clap::Parser;
 use ed25519_dalek::{Signer, SigningKey};
 
-use pins_core::tree::ReferenceTree;
-use pins_core::{signing_message, BatchPayload, LeafRecord, Op, Transaction};
+use kns_core::tree::ReferenceTree;
+use kns_core::{signing_message, BatchPayload, LeafRecord, Op, Transaction};
 
 fn hex(b: &[u8]) -> String {
     b.iter().map(|x| format!("{x:02x}")).collect()
@@ -38,14 +38,14 @@ fn key(seed: u8) -> SigningKey {
 }
 
 fn unified_address(seed: u8) -> Result<String> {
-    let mut payload = [0u8; pins_core::SAPLING_PAYLOAD_LEN];
+    let mut payload = [0u8; kns_core::SAPLING_PAYLOAD_LEN];
     for (i, b) in payload.iter_mut().enumerate() {
         *b = seed.wrapping_mul(31).wrapping_add(i as u8);
     }
     let data = bech32::ToBase32::to_base32(&payload);
-    let addr = bech32::encode(pins_core::EXPECTED_HRP, data, bech32::Variant::Bech32)
-        .context("failed to bech32-encode the Sapling payload")?;
-    anyhow::ensure!(pins_core::is_address_valid(&addr), "generated address is not accepted");
+    let addr = bech32::encode(kns_core::EXPECTED_HRP, data, bech32::Variant::Bech32m)
+        .context("failed to bech32m-encode the Sapling payload")?;
+    anyhow::ensure!(kns_core::is_address_valid(&addr), "generated address is not accepted");
     Ok(addr)
 }
 
@@ -54,7 +54,7 @@ fn main() -> Result<()> {
     let owner = key(0x41);
     let pk: [u8; 32] = owner.verifying_key().to_bytes();
     let addr = unified_address(0x41)?;
-    let domain = "relist.pivx";
+    let domain = "relist.krgn";
 
     let mut tree = ReferenceTree::new();
     let old_root = tree.root();

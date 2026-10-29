@@ -1,5 +1,5 @@
 [workspace]
-members = ["pins-core", "program", "script"]
+members = ["kns-core", "program", "script"]
 resolver = "2"
 
 [patch.crates-io]

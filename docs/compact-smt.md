@@ -1,8 +1,8 @@
 # Compact Sparse Merkle Tree — Protocol Specification
 
 Status: **specified and validated against a reference implementation; Rust not yet
-written.** This document is the shared contract between `pins-core` (which will
-implement it), `pivx-name-rr-proxy` (which builds the tree and emits proofs), the SP1
+written.** This document is the shared contract between `kns-core` (which will
+implement it), `kerrigan-name-rr-proxy` (which builds the tree and emits proofs), the SP1
 guest circuit (which verifies them) and the PHP client (which forwards them).
 
 Implement from this document, not from either codebase, and keep them in step.
@@ -278,7 +278,7 @@ always there.
 
 The circuit therefore also requires the record to be cut the way every leaf in the tree
 is: a valid domain, and a target address of exactly `EXPECTED_ADDRESS_LEN` characters
-(`pins_core::is_blocking_record_valid`). Every leaf satisfies both — `REG` validates the
+(`kns_core::is_blocking_record_valid`). Every leaf satisfies both — `REG` validates the
 domain, and `REG`, `UPD` and `BUY` the address, which the other operations carry over — and
 a fixed address length fixes the domain length, so exactly one cut remains. The leaf
 format itself is unchanged; restructuring it with length prefixes would have changed every
@@ -312,7 +312,7 @@ never a theft, because the leaf commits to the domain.
 
 ## 6. What changes where
 
-### `pins-core`
+### `kns-core`
 - Delete `empty_subtree_roots`, add `const EMPTY: Hash = [0u8; 32]`.
 - Replace `smt_roots` with the four cases of §4. Suggested shape:
   `fn verify_and_apply(key, proof, old_leaf: Option<Hash>, new_leaf) -> (Hash, Hash)`
@@ -329,14 +329,14 @@ never a theft, because the leaf commits to the domain.
 - Everything else — nonce checks, per-op invariants, signature verification — is
   untouched.
 
-### `pivx-name-rr-proxy`
+### `kerrigan-name-rr-proxy`
 - `Smt::default_hashes` and the ladder go away.
 - `update` becomes an insert honouring §2.1: descend to the terminal, and on a blocked
   slot **delete the node at depth `d`** and write the split chain (the store already has
   tombstone support). Writes ~`log₂(N)` nodes instead of 129.
 - `proof` returns the §3 structure, needing the terminal's record on a blocked slot.
 - The `NodeKey` scheme (`[depth][packed prefix]`) is unchanged and still correct.
-- Keep `agrees_with_prover_traversal` calling `pins_core` directly.
+- Keep `agrees_with_prover_traversal` calling `kns_core` directly.
 
 > **The daemon must now persist full leaf records, which it does not today.**
 >
@@ -364,7 +364,7 @@ never a theft, because the leaf commits to the domain.
 ## 7. Test plan
 
 All of the following already pass in `docs/reference/csmt_reference.py`; the Rust must
-reproduce them, with golden vectors taken from that script so `pins-core`'s tests
+reproduce them, with golden vectors taken from that script so `kns-core`'s tests
 cross-check rather than restate the implementation:
 
 - Empty tree: `root == EMPTY`; `REG` at `d=0` gives `root == leaf`.
@@ -392,10 +392,10 @@ Adversarial tests, each of which **must fail verification**:
 
 ## 8. Migration
 
-Pre-launch on both the PIVX and PIVX sides, and no registered domains, so this is a
+Pre-launch, with no registered domains, so this is a
 resync rather than a migration:
 
-1. Land `pins-core`, guest and daemon together — they share the crate, so a mismatch is
+1. Land `kns-core`, guest and daemon together — they share the crate, so a mismatch is
    a compile error rather than a silent root divergence.
 2. Update the PHP proof parsing.
 3. Wipe the databases (`OP_CLEAR`) and resync from chain data.

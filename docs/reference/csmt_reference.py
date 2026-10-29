@@ -7,7 +7,7 @@ This is deliberately NOT a port of the Rust. It is a second, independent
 implementation used to:
 
   1. validate the specification before the Rust was written,
-  2. generate golden vectors for `pins-core`'s tests, so those tests cross-check
+  2. generate golden vectors for `kns-core`'s tests, so those tests cross-check
      rather than restate the implementation they cover,
   3. demonstrate the section 5.3 attack, so the reason the non-inclusion proof
      carries a full leaf preimage is reproducible rather than merely argued.
@@ -216,28 +216,28 @@ def main():
     print("=== empty tree and first registration ===")
     t = Tree()
     _ok("empty tree root == EMPTY", t.root() == EMPTY)
-    pr = t.proof("alice.pivx")
+    pr = t.proof("alice.krgn")
     _ok("depth 0, Vacant", pr[0] == 0 and pr[2][0] == "Vacant")
-    root, _ = _reg(t, t.root(), "alice.pivx")
-    _ok("one-leaf tree root == that leaf", root == t.leaf("alice.pivx"))
+    root, _ = _reg(t, t.root(), "alice.krgn")
+    _ok("one-leaf tree root == that leaf", root == t.leaf("alice.krgn"))
 
     print("=== inclusion at depth 0 ===")
-    pr = t.proof("alice.pivx")
+    pr = t.proof("alice.krgn")
     _ok("Occupied at depth 0", pr[0] == 0 and pr[2][0] == "Occupied")
-    nl = hash_leaf("alice.pivx", *_rec(2))
-    nr = verify_and_apply("alice.pivx", pr, root, t.leaf("alice.pivx"), nl)
-    t.rec["alice.pivx"] = _rec(2)
+    nl = hash_leaf("alice.krgn", *_rec(2))
+    nr = verify_and_apply("alice.krgn", pr, root, t.leaf("alice.krgn"), nl)
+    t.rec["alice.krgn"] = _rec(2)
     _ok("update matches canonical root", nr == t.root())
     root = nr
 
     print("=== registration into a blocked slot (the split) ===")
-    _ok("second name is Blocked", t.proof("bob.pivx")[2][0] == "Blocked")
-    root, _ = _reg(t, root, "bob.pivx")
+    _ok("second name is Blocked", t.proof("bob.krgn")[2][0] == "Blocked")
+    root, _ = _reg(t, root, "bob.krgn")
     _ok("split matches canonical root", root == t.root())
 
     print("=== 250 registrations, each checked against canonical form ===")
     t, root = Tree(), EMPTY
-    doms = [f"d{i}.pivx" for i in range(250)]
+    doms = [f"d{i}.krgn" for i in range(250)]
     kinds = {"Blocked": 0, "Vacant": 0}
     for dom in doms:
         root, kind = _reg(t, root, dom)
@@ -256,7 +256,7 @@ def main():
     print(f"    ~{2 * mean:.0f} node hashes/tx vs 256 -> {256 / (2 * mean):.1f}x")
 
     print("=== spec 5.3: the blocking-key attack ===")
-    cand = next(f"atk{i}.pivx" for i in range(2000) if t.proof(f"atk{i}.pivx")[2][0] == "Blocked")
+    cand = next(f"atk{i}.krgn" for i in range(2000) if t.proof(f"atk{i}.krgn")[2][0] == "Blocked")
     d, sibs, (_, blocker) = pr = t.proof(cand)
     brec = (blocker,) + t.rec[blocker]
     blocking_leaf, nl = t.leaf(blocker), hash_leaf(cand, *_rec())
@@ -291,7 +291,7 @@ def main():
 
     _rejects("5.3 attack against the specified verifier",
              lambda: verify_and_apply(cand, pr, root, None, nl,
-                                      blocking_rec=("zzzz.pivx",) + t.rec[blocker]))
+                                      blocking_rec=("zzzz.krgn",) + t.rec[blocker]))
 
     print("=== remaining adversarial cases (spec 7) ===")
     victim = doms[0]

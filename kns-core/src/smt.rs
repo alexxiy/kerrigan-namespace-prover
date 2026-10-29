@@ -292,11 +292,11 @@ mod tests {
     fn registration_sequence_matches_reference() {
         let mut t = ReferenceTree::new();
         let expected = [
-            ("alice.pivx", "a54fccb6ddbf771d51016fa937f1d6837b6c43f9cc87d85c64121a8975be72dc"),
-            ("bob.pivx",   "9a2ed67d6588b41f3673364ab65acba3121b86608c0bbc80bbbca46d13dd64ed"),
-            ("carol.pivx", "02e407846ef37d06b4f23f64093a3b92d354473419b7ca6ecd914855cd2415dc"),
-            ("dave.pivx",  "b0854272e150bfa00978a6ccd07cd03f24c2f000b9a67f0bb16044d787440146"),
-            ("eve.pivx",   "56e8ef7d050031e8d922be0988f95df18f945436e218e0db77bd8cab95d86356"),
+            ("alice.krgn", "339377c329cb7a64952b360fd20265bc3da7cfa1547734a5338267dd8d095f6b"),
+            ("bob.krgn",   "8ec1ba5192b78fc356685468317d228a4ceadb91a532feb0465e39e673865c5e"),
+            ("carol.krgn", "816cf7da2a5fa83844c6f3e88da63210b391fdf91595f0b27a761e7dca5083c1"),
+            ("dave.krgn",  "6f0ac9a07d394e5156df139187950ab2a589dfc889cc6de21671f13601f0e217"),
+            ("eve.krgn",   "0f529a84c77ac607ec89f17a46a4c4fb16c983431ad9d297ed914fbb77000582"),
         ];
         for (domain, want) in expected {
             assert_eq!(hex(&register(&mut t, domain)), want, "after REG {domain}");
@@ -306,19 +306,19 @@ mod tests {
     #[test]
     fn one_leaf_tree_root_is_that_leaf() {
         let mut t = ReferenceTree::new();
-        let root = register(&mut t, "alice.pivx");
-        assert_eq!(root, rec("alice.pivx", 1).leaf());
-        assert_eq!(t.proof("alice.pivx").depth, 0, "a lone leaf sits at the root");
+        let root = register(&mut t, "alice.krgn");
+        assert_eq!(root, rec("alice.krgn", 1).leaf());
+        assert_eq!(t.proof("alice.krgn").depth, 0, "a lone leaf sits at the root");
     }
 
     #[test]
     fn key_derivation_matches_reference() {
-        assert_eq!(hex(&key_of("alice.pivx")), "485017efa5d28fa0bcd37ac0570fc45d");
-        assert_eq!(hex(&key_of("bob.pivx")), "ba11057578fc00be5790423524722254");
-        // 0x48 = 0b0100_1000, most-significant-bit first.
-        let k = key_of("alice.pivx");
+        assert_eq!(hex(&key_of("alice.krgn")), "fbf0a43deee9bf66e4bf5415259f5cf4");
+        assert_eq!(hex(&key_of("bob.krgn")), "a96751d69f7583b1cd101a6ad887ff69");
+        // 0xfb = 0b1111_1011, most-significant-bit first.
+        let k = key_of("alice.krgn");
         let got: Vec<u8> = (0..8).map(|i| key_bit(&k, i) as u8).collect();
-        assert_eq!(got, vec![0, 1, 0, 0, 1, 0, 0, 0]);
+        assert_eq!(got, vec![1, 1, 1, 1, 1, 0, 1, 1]);
     }
 
     // -- structure ----------------------------------------------------------
@@ -326,7 +326,7 @@ mod tests {
     #[test]
     fn leaves_stay_shallow_and_all_remain_provable() {
         let mut t = ReferenceTree::new();
-        let domains: Vec<String> = (0..120).map(|i| format!("d{i}.pivx")).collect();
+        let domains: Vec<String> = (0..120).map(|i| format!("d{i}.krgn")).collect();
         let mut root = EMPTY;
         for d in &domains {
             root = register(&mut t, d);
@@ -347,7 +347,7 @@ mod tests {
 
     #[test]
     fn insertion_order_does_not_change_the_root() {
-        let domains = ["alice.pivx", "bob.pivx", "carol.pivx", "dave.pivx"];
+        let domains = ["alice.krgn", "bob.krgn", "carol.krgn", "dave.krgn"];
         let mut forward = ReferenceTree::new();
         for d in domains {
             forward.insert(rec(d, 1));
@@ -366,7 +366,7 @@ mod tests {
         let mut t = ReferenceTree::new();
         let (mut vacant, mut blocked) = (0, 0);
         for i in 0..80 {
-            let d = format!("s{i}.pivx");
+            let d = format!("s{i}.krgn");
             match t.proof(&d).terminal {
                 Terminal::Vacant => vacant += 1,
                 Terminal::Blocked { .. } => blocked += 1,
@@ -380,20 +380,20 @@ mod tests {
     #[test]
     fn update_in_place_keeps_depth_and_only_moves_the_new_root() {
         let mut t = ReferenceTree::new();
-        for d in ["alice.pivx", "bob.pivx", "carol.pivx"] {
+        for d in ["alice.krgn", "bob.krgn", "carol.krgn"] {
             register(&mut t, d);
         }
         let root = t.root();
-        let proof = t.proof("alice.pivx");
-        let old = t.leaf("alice.pivx").unwrap();
+        let proof = t.proof("alice.krgn");
+        let old = t.leaf("alice.krgn").unwrap();
 
-        let (o1, n1) = verify_and_apply("alice.pivx", &proof, Some(old), rec("alice.pivx", 2).leaf());
-        let (o2, n2) = verify_and_apply("alice.pivx", &proof, Some(old), rec("alice.pivx", 3).leaf());
+        let (o1, n1) = verify_and_apply("alice.krgn", &proof, Some(old), rec("alice.krgn", 2).leaf());
+        let (o2, n2) = verify_and_apply("alice.krgn", &proof, Some(old), rec("alice.krgn", 3).leaf());
         assert_eq!(o1, root);
         assert_eq!(o1, o2, "old root must not depend on the new leaf");
         assert_ne!(n1, n2, "different new leaves must give different roots");
 
-        t.insert(rec("alice.pivx", 2));
+        t.insert(rec("alice.krgn", 2));
         assert_eq!(n1, t.root());
     }
 
@@ -403,7 +403,7 @@ mod tests {
         let mut t = ReferenceTree::new();
         let mut root = EMPTY;
         for i in 0..40 {
-            root = register(&mut t, &format!("d{i}.pivx"));
+            root = register(&mut t, &format!("d{i}.krgn"));
         }
         (t, root)
     }
@@ -411,7 +411,7 @@ mod tests {
     /// A fresh name whose slot is held by another domain.
     fn blocked_name(t: &ReferenceTree) -> (String, Proof, LeafRecord) {
         for i in 0..500 {
-            let name = format!("atk{i}.pivx");
+            let name = format!("atk{i}.krgn");
             let proof = t.proof(&name);
             if let Terminal::Blocked { ref record } = proof.terminal {
                 let record = record.clone();
@@ -430,7 +430,7 @@ mod tests {
         let (t, _) = populated();
         let (name, proof, _) = blocked_name(&t);
         let forged = Proof {
-            terminal: Terminal::Blocked { record: rec("zzzzzzzz.pivx", 1) },
+            terminal: Terminal::Blocked { record: rec("zzzzzzzz.krgn", 1) },
             ..proof
         };
         verify_and_apply(&name, &forged, None, rec(&name, 1).leaf());
@@ -465,9 +465,9 @@ mod tests {
     #[should_panic(expected = "siblings but claims depth")]
     fn rejects_sibling_count_mismatch() {
         let (t, _) = populated();
-        let mut proof = t.proof("d0.pivx");
+        let mut proof = t.proof("d0.krgn");
         proof.siblings.pop();
-        verify_and_apply("d0.pivx", &proof, t.leaf("d0.pivx"), [0xAAu8; 32]);
+        verify_and_apply("d0.krgn", &proof, t.leaf("d0.krgn"), [0xAAu8; 32]);
     }
 
     #[test]
@@ -478,14 +478,14 @@ mod tests {
             siblings: vec![EMPTY; MAX_DEPTH + 1],
             terminal: Terminal::Occupied,
         };
-        verify_and_apply("d0.pivx", &proof, Some([1u8; 32]), [0xAAu8; 32]);
+        verify_and_apply("d0.krgn", &proof, Some([1u8; 32]), [0xAAu8; 32]);
     }
 
     #[test]
     #[should_panic(expected = "already registered")]
     fn rejects_registration_onto_an_occupied_terminal() {
         let (t, _) = populated();
-        verify_and_apply("d0.pivx", &t.proof("d0.pivx"), None, rec("d0.pivx", 9).leaf());
+        verify_and_apply("d0.krgn", &t.proof("d0.krgn"), None, rec("d0.krgn", 9).leaf());
     }
 
     #[test]
@@ -493,7 +493,7 @@ mod tests {
     fn rejects_update_against_a_vacant_terminal() {
         let (t, _) = populated();
         let name = (0..500)
-            .map(|i| format!("free{i}.pivx"))
+            .map(|i| format!("free{i}.krgn"))
             .find(|n| t.proof(n).terminal == Terminal::Vacant)
             .expect("no vacant slot found");
         verify_and_apply(&name, &t.proof(&name), Some([1u8; 32]), [0xAAu8; 32]);
@@ -512,28 +512,28 @@ mod tests {
     #[test]
     fn wrong_depth_cannot_reconstruct_the_root() {
         let (t, root) = populated();
-        let proof = t.proof("d0.pivx");
-        let leaf = t.leaf("d0.pivx").unwrap();
+        let proof = t.proof("d0.krgn");
+        let leaf = t.leaf("d0.krgn").unwrap();
 
         let mut shallow = proof.clone();
         shallow.depth -= 1;
         shallow.siblings.remove(0);
-        let (bad, _) = verify_and_apply("d0.pivx", &shallow, Some(leaf), [0xAAu8; 32]);
+        let (bad, _) = verify_and_apply("d0.krgn", &shallow, Some(leaf), [0xAAu8; 32]);
         assert_ne!(bad, root);
 
         let mut deep = proof.clone();
         deep.depth += 1;
         deep.siblings.insert(0, EMPTY);
-        let (bad, _) = verify_and_apply("d0.pivx", &deep, Some(leaf), [0xAAu8; 32]);
+        let (bad, _) = verify_and_apply("d0.krgn", &deep, Some(leaf), [0xAAu8; 32]);
         assert_ne!(bad, root);
     }
 
     #[test]
     fn vacant_terminal_cannot_be_claimed_for_a_present_key() {
         let (t, root) = populated();
-        let proof = t.proof("d0.pivx");
+        let proof = t.proof("d0.krgn");
         let forged = Proof { terminal: Terminal::Vacant, ..proof };
-        let (bad, _) = verify_and_apply("d0.pivx", &forged, None, [0xAAu8; 32]);
+        let (bad, _) = verify_and_apply("d0.krgn", &forged, None, [0xAAu8; 32]);
         assert_ne!(bad, root, "an empty leaf must not reconstruct a populated root");
     }
 }
