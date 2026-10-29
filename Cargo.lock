@@ -3658,6 +3658,48 @@ dependencies = [
 ]
 
 [[package]]
+name = "kns-core"
+version = "0.1.0"
+dependencies = [
+ "bech32",
+ "ed25519-dalek",
+ "serde",
+ "sha2 0.10.9",
+]
+
+[[package]]
+name = "kns-program"
+version = "0.1.0"
+dependencies = [
+ "alloy-sol-types",
+ "ed25519-dalek",
+ "kns-core",
+ "serde",
+ "sp1-zkvm",
+]
+
+[[package]]
+name = "kns-script"
+version = "0.1.0"
+dependencies = [
+ "alloy-sol-types",
+ "anyhow",
+ "bech32",
+ "clap",
+ "ed25519-dalek",
+ "hex",
+ "kns-core",
+ "serde",
+ "serde_json",
+ "sp1-build",
+ "sp1-sdk",
+ "tokio",
+ "tracing",
+ "tracing-appender",
+ "tracing-subscriber",
+]
+
+[[package]]
 name = "konst"
 version = "0.2.20"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4524,48 +4566,6 @@ name = "pin-project-lite"
 version = "0.2.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a89322df9ebe1c1578d689c92318e070967d1042b512afbe49518723f4e6d5cd"
-
-[[package]]
-name = "kns-core"
-version = "0.1.0"
-dependencies = [
- "bech32",
- "ed25519-dalek",
- "serde",
- "sha2 0.10.9",
-]
-
-[[package]]
-name = "kns-program"
-version = "0.1.0"
-dependencies = [
- "alloy-sol-types",
- "ed25519-dalek",
- "kns-core",
- "serde",
- "sp1-zkvm",
-]
-
-[[package]]
-name = "kns-script"
-version = "0.1.0"
-dependencies = [
- "alloy-sol-types",
- "anyhow",
- "bech32",
- "clap",
- "ed25519-dalek",
- "hex",
- "kns-core",
- "serde",
- "serde_json",
- "sp1-build",
- "sp1-sdk",
- "tokio",
- "tracing",
- "tracing-appender",
- "tracing-subscriber",
-]
 
 [[package]]
 name = "pkcs8"

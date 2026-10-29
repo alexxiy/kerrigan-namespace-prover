@@ -167,10 +167,13 @@ cargo prove vkey --elf ../target/elf-compilation/docker/riscv64im-succinct-zkvm-
 
 | Source | `vKey` (mainnet) | On the anchor contract |
 |:---|:---|:---|
-| `v0.1.0` | set by the release build | `programVkey()` in epoch 1, from the contract's deployment |
+| `v0.1.0` (`301e650`) | `0x00209c4f9658c89339394b4ec81ae7b0d9752e92b2bab849deb52753290e60e8` | `programVkey()` in epoch 1, from the contract's deployment |
 
-Compare with the anchor contract on BNB Smart Chain (its address is in the
-`kerrigan-namespace-evm-anchor` README once deployed):
+The testnet build of `v0.1.0` (`--features testnet`) gives
+`0x00eebc25bdb9be40c782ae63984d2826ebe6c08fad0832823ba0e614d89185e6`.
+
+Compare with the anchor contract on BNB Smart Chain (`0xca90886d9999cef4e15da8b4af061a52c366238d`,
+see the `kerrigan-namespace-evm-anchor` README):
 
 - `programVkey()` (selector `0x09665ee7`): the `vKey` in force now.
 - `pendingRulesVkey()` (selector `0x78aa4dbf`): the `vKey` of a proposed rules change, or zero
@@ -183,7 +186,7 @@ Compare with the anchor contract on BNB Smart Chain (its address is in the
 
 ```bash
 curl -s -X POST https://bsc-dataseed.bnbchain.org -H 'Content-Type: application/json' \
-  -d '{"jsonrpc":"2.0","id":1,"method":"eth_call","params":[{"to":"<anchor contract address>","data":"0x09665ee7"},"latest"]}'
+  -d '{"jsonrpc":"2.0","id":1,"method":"eth_call","params":[{"to":"0xca90886d9999cef4e15da8b4af061a52c366238d","data":"0x09665ee7"},"latest"]}'
 ```
 
 **Why the Docker image.** The guest ELF contains the absolute paths of the crates it was
