@@ -21,7 +21,7 @@ For each transaction in a batch, the guest program running inside the zkVM stric
 1. **Replay Protection**: Verifies sequential nonces (`nonce > old_nonce`).
 2. **Input Validation**: Ensures valid domain string rules (TLDs `.kerrigan`, `.krgn`, `.private`, `.secure` and `.safe`) and Kerrigan Sapling address formats (bech32m) for the network the build targets.
 3. **Cryptographic Signatures**: Validates Ed25519 signatures of domain owners.
-4. **State Transition Integrity**: Validates and updates leaf nodes in a 128-level Sparse Merkle Tree (SMT). Leaf and internal-node hashes are domain-separated by a `0x00` / `0x01` tag prefix, so a leaf preimage can never be reinterpreted as an internal node. **The host that builds the tree must apply the identical tags**, including when deriving its empty-subtree constant ladder (`E₀ = 0×32`, `E₍ᵢ₊₁₎ = SHA256(0x01 ‖ Eᵢ ‖ Eᵢ)`).
+4. **State Transition Integrity**: Validates and updates leaf nodes in a compact Sparse Merkle Tree (SMT), keyed by the first 128 bits of `SHA256(domain)`: a leaf sits at the shallowest depth at which it is the only key in its subtree, so a proof carries about log2(N) siblings rather than 128 (see [`docs/compact-smt.md`](docs/compact-smt.md)). Leaf and internal-node hashes are domain-separated by a `0x00` / `0x01` tag prefix, so a leaf preimage can never be reinterpreted as an internal node. **The host that builds the tree must apply the identical tags.** An empty subtree is the single constant `EMPTY` (32 zero bytes) at every height, which is also the root of an empty tree: there is no per-height ladder of empty-subtree hashes.
 5. **ABI Commit**: Encodes and commits the initial root (`old_root`), final root (`new_root`), and target block height (`end_block_height`) as public values.
 
 ---
@@ -98,8 +98,9 @@ on byte-for-byte lives in **`kns-core`** — the batch structures, the exact byt
 get signed for each operation, the leaf and node hash functions, and the Merkle path
 traversal order. It was previously duplicated between the guest and the runner.
 
-`kns-core` ships golden-vector tests covering the leaf hash, the empty-subtree
-ladder, the path bit-ordering and all six signed-message formats. **A host
+`kns-core` ships golden-vector tests covering the leaf hash, the empty-tree root,
+the key derivation and path bit-ordering, the roots of a reference registration
+sequence and all six signed-message formats. **A host
 implementation should reproduce every one of those values.** If it cannot, the two
 sides disagree and proofs will not verify:
 
